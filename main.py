@@ -1,10 +1,9 @@
-from datetime import datetime
 import pygame
 import math
 import random
 import time
-import threading
 from enum import Enum
+from datetime import datetime
 
 
 pygame.font.init()
@@ -28,20 +27,6 @@ class status(Enum):
     OK = 1
     EXPLODE = 2
     DESTROYED = 3
-
-class StoppableThread(threading.Thread):
-    """Thread class with a stop() method. The thread itself has to check
-    regularly for the stopped() condition."""
-
-    def __init__(self,  *args, **kwargs):
-        super(StoppableThread, self).__init__(*args, **kwargs)
-        self._stop_event = threading.Event()
-
-    def stop(self):
-        self._stop_event.set()
-
-    def stopped(self):
-        return self._stop_event.is_set()
 
 
 class Bomb:
@@ -127,15 +112,12 @@ class Game:
             )
         )
 
-    def make_bombs(self):
-        start = time.time()
-        while True:
+    def make_bombs(self, start):
 
-            k = math.ceil((time.time() - start) / 10 + 3)
+        k = math.ceil((time.time() - start) / 10 + 3)
 
-            for bomb in self.random_bombs(k):
-                self.bombs.append(Bomb(bomb))
-            time.sleep(3)
+        for bomb in self.random_bombs(k):
+            self.bombs.append(Bomb(bomb))
 
     def start(self):
 
@@ -143,10 +125,8 @@ class Game:
         clock = pygame.time.Clock()
         fps = 60
         score = 0
-
-        thread = StoppableThread(target=self.make_bombs)
-        thread.start()
-
+        start = time.time()
+        last_make = 0
 
         while run:
             clock.tick(fps)
@@ -155,7 +135,6 @@ class Game:
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     run = False
-                    thread.stop()
                     return
 
                 elif event.type == gameover:
@@ -183,10 +162,13 @@ class Game:
 
             self.draw_window()
 
+            if (n:=time.time()) - last_make >= 3:
+                self.make_bombs(start)
+                last_make = n
+
 
 
 if __name__ == '__main__':
     game = Game()
     game.start()
-    exit()
    
