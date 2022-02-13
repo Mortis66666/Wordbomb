@@ -1,5 +1,6 @@
+from datetime import datetime
 import pygame
-import sys
+import math
 import random
 import time
 import threading
@@ -15,6 +16,7 @@ pygame.display.set_caption("Word Bomb")
 font = pygame.font.SysFont("archivo", 30)
 boom = pygame.font.SysFont("archivo", 25)
 
+gameover = pygame.USEREVENT + 1
 
 #colours
 white = (233, 233, 233)
@@ -64,6 +66,9 @@ class Bomb:
                 win.blit(text, (self.x - 10, self.y - 10))
                 self.down()
 
+                if self.y - 30 > height:
+                    pygame.event.post(pygame.event.Event(gameover))
+
                 return True
 
             case status.EXPLODE:
@@ -91,10 +96,13 @@ class Bomb:
         self.y += 2
 
 
-    def handle(self, key):
+    def handle(self, key, score) -> int:
 
         if pygame.key.name(key).upper() == self.char:
             self.explode()
+            score += 1
+        
+        return score
     
 
 class Game:
@@ -110,19 +118,22 @@ class Game:
 
         pygame.display.update()
 
-    def random_bombs(self) -> set:
+    def random_bombs(self, k) -> set:
 
         return set(
             random.choices(
                 list(range(10)),
-                k = random.randint(1,3)
+                k = random.randint(1,k)
             )
         )
 
     def make_bombs(self):
-
+        start = time.time()
         while True:
-            for bomb in self.random_bombs():
+
+            k = math.ceil((time.time() - start) / 10 + 3)
+
+            for bomb in self.random_bombs(k):
                 self.bombs.append(Bomb(bomb))
             time.sleep(3)
 
@@ -131,6 +142,7 @@ class Game:
         run = True
         clock = pygame.time.Clock()
         fps = 60
+        score = 0
 
         thread = StoppableThread(target=self.make_bombs)
         thread.start()
@@ -144,9 +156,29 @@ class Game:
                     pygame.quit()
                     run = False
                     thread.stop()
+                    return
+
+                elif event.type == gameover:
+                    text = font.render("Gameover", True, black)
+                    sco = font.render(f"Score: {score}", True, black)
+                    win.blit(text, (width//2-text.get_width(), 0))
+                    win.blit(sco, (width//2-text.get_width(), text.get_height()))
+
+                    with open("logs.txt", "a") as logs:
+                        print(datetime.now().strftime("[%d/%m/%Y %H:%M]: "),str(score), file=logs)
+
+                    print("Score: ", score)
+
+                    pygame.display.update()
+
+                    time.sleep(1.5)
+                    self.bombs.clear()
+                    self.start()
+
+                
                 elif event.type == pygame.KEYDOWN:
                     for bomb in self.bombs:
-                        bomb.handle(event.key)
+                        score = bomb.handle(event.key, score)
                 
 
             self.draw_window()
@@ -156,4 +188,5 @@ class Game:
 if __name__ == '__main__':
     game = Game()
     game.start()
+    exit()
    
